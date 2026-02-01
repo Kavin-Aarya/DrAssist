@@ -1,9 +1,11 @@
 import os
 from huggingface_hub import login
 from transformers import AutoModelForCTC, AutoProcessor
+from dotenv import load_dotenv
 
+load_dotenv()
 
-login("")
+token = os.getenv("HF_TOKEN")
 
 model_id = "google/medasr"
 save_path = "./medasr_local"
@@ -19,7 +21,7 @@ try:
     processor.save_pretrained(save_path)
     model.save_pretrained(save_path)
     
-    print(f"✅ Success! MedASR saved to {save_path}")
+    print(f"Success! MedASR saved to {save_path}")
 
 except Exception as e:
     print(f"Error: {e}")
