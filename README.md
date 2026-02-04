@@ -87,4 +87,6 @@ Now that you have the files, install the necessary software and start the app:
    ```bash
    npm run dev
    ``` 
-   
+
+## Demo video
+[Watch the video by clicking this Link](https://youtu.be/WYXLv61rIO0)
