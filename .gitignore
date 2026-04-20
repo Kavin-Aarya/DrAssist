@@ -1,6 +1,18 @@
+# Dependency directories
 node_modules/
-.DS_Store
+**/node_modules/
+
+# Environment secrets
+.env
+**/.env
+
+# Build and OS files
 dist/
 build/
+.DS_Store
+
+# Project specific
 medasr_local/
-.env
+backend/uploads/
+
+load_test.js

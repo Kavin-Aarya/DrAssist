@@ -38,7 +38,7 @@ a {
   :root {
     color: #213547;
     /* Change this from #ffffff to your project dark color */
-    background-color: #040d0d; 
+    background-color: #ffffff; 
   }
 }
 
@@ -47,5 +47,5 @@ html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
-  background-color: #040d0d; /* Global safety net */
+  background-color: #ffffff; /* Global safety net */
 }

@@ -10,7 +10,9 @@ from flask_cors import CORS
 from transformers import pipeline
 
 app = Flask(__name__)
-CORS(app)
+
+# FIX 1: explicitly allow the Vite dev server origin and all methods
+CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=False)
 
 # Load MedASR model
 print("Loading Google MedASR model...")
@@ -21,8 +23,16 @@ stt_pipe = pipeline(
 )
 print("MedASR loaded successfully!")
 
-@app.route('/api/process-voice', methods=['POST'])
+@app.route('/api/process-voice', methods=['POST', 'OPTIONS'])
 def process_voice():
+    # FIX 2: handle preflight OPTIONS request explicitly
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'ok'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        return response, 200
+
     if 'audio' not in request.files:
         return jsonify({"error": "No audio file received"}), 400
 
@@ -30,31 +40,24 @@ def process_voice():
     temp_webm = "temp_audio.webm"
     temp_wav = "clinical_audio.wav"
     
-    # Save the uploaded file
     audio_file.save(temp_webm)
 
     try:
-        # A. LOAD & CONVERT AUDIO
         print("Loading audio with librosa...")
-        # Load audio (librosa handles various formats)
         audio_input, sr = librosa.load(temp_webm, sr=None)
         
-        # Resample to 16kHz (required for MedASR)
         if sr != 16000:
             print(f"Resampling from {sr}Hz to 16000Hz...")
             audio_input = librosa.resample(audio_input, orig_sr=sr, target_sr=16000)
         
-        # Save as proper WAV file
         sf.write(temp_wav, audio_input, 16000)
-        print(f"Audio converted successfully. Shape: {audio_input.shape}, Sample rate: 16000Hz")
+        print(f"Audio converted. Shape: {audio_input.shape}, SR: 16000Hz")
 
-        # B. TRANSCRIBE
         print("Transcribing with MedASR...")
         stt_result = stt_pipe(audio_input, chunk_length_s=30, stride_length_s=5)
         transcript = stt_result["text"]
         print(f"Transcript: {transcript}")
 
-        # C. EXTRACT DATA
         print("Extracting JSON with Mistral...")
         sys_prompt = (
             "You are a clinical scribe. Extract medical data into a JSON object. "
@@ -73,7 +76,6 @@ def process_voice():
             ]
         )
 
-        # D. PARSE JSON STRING TO OBJECT
         raw_content = llm_response['message']['content']
         try:
             bill_data = json.loads(raw_content)
@@ -81,29 +83,19 @@ def process_voice():
             print(f"JSON parse error: {e}")
             bill_data = {"error": "Failed to parse JSON", "raw": raw_content}
 
-        # Cleanup temp files
-        if os.path.exists(temp_webm):
-            os.remove(temp_webm)
-        if os.path.exists(temp_wav):
-            os.remove(temp_wav)
+        if os.path.exists(temp_webm): os.remove(temp_webm)
+        if os.path.exists(temp_wav):  os.remove(temp_wav)
 
-        return jsonify({
-            "transcript": transcript,
-            "bill": bill_data
-        })
+        return jsonify({"transcript": transcript, "bill": bill_data})
 
     except Exception as e:
         print(f"Error: {str(e)}")
         import traceback
         traceback.print_exc()
-        
-        # Cleanup on error
-        if os.path.exists(temp_webm):
-            os.remove(temp_webm)
-        if os.path.exists(temp_wav):
-            os.remove(temp_wav)
-            
+        if os.path.exists(temp_webm): os.remove(temp_webm)
+        if os.path.exists(temp_wav):  os.remove(temp_wav)
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    # FIX 3: use_reloader=False prevents double-loading the model and port conflicts
+    app.run(host='0.0.0.0', port=3001, debug=True, use_reloader=False)

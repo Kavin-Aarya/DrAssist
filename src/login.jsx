@@ -1,152 +1,264 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { Eye, EyeOff } from 'lucide-react';
+import Alert from "./alert";
+import { AnimatePresence } from 'framer-motion';
+import { useAuth } from "./AuthContext";
+
+const Inp = ({ className = "", ...props }) => (
+  <input {...props} className={`w-full bg-white/62 border border-[rgba(200,185,165,0.5)] rounded-xl px-3.5 py-3 text-sm text-[#1e1a14] outline-none transition-all duration-200 backdrop-blur-sm placeholder-[#c0b0a0] focus:border-[#3f8b8c] focus:shadow-[0_0_0_3px_rgba(63,139,140,0.11)] focus:bg-white/88 font-[Outfit,sans-serif] ${className}`} />
+);
+
+const Field = ({ label, children }) => (
+  <div className="flex flex-col gap-1.5">
+    <label className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#a09080]">{label}</label>
+    {children}
+  </div>
+);
 
 export default function FullPageLogin() {
-  const slides=[
-    { id: 0, image: "assets/doctor1.png", title: "Effortless Hands-Free Prescriptions", desc: "Transform your clinical workflow and generate professional prescription sheets in just three simple steps." },
-    { id: 1, image: "assets/doctor2.png", title: "Seamless Patient Check-ups", desc: "Conduct your physical examinations without the distraction of manual note-taking." },
-    { id: 2, image: "assets/doctor3.png", title: "Smart AI Voice Documentation", desc: "Simply speak your diagnosis and treatment plan into the microphone. Our advanced AI captures your clinical notes in real-time with medical-grade accuracy." },
-    { id: 3, image: "assets/doctor4.png", title: "Instant Prescription Generation", desc: "Watch as your spoken words are instantly formatted into a structured, professional prescription sheet." },
-    { id: 4, image: "assets/doctor5.png", title: "Finalize & Deliver Care", desc: "Review and print the digitally generated sheet to hand over to your patient immediately." }
-  ]
+  const { login } = useAuth();
+  const slides = [
+    { id: 0, image: "/assets/doctor1.png", title: "Effortless Hands-Free Prescriptions", desc: "Transform your clinical workflow and generate professional prescription sheets in just three simple steps." },
+    { id: 1, image: "/assets/doctor2.png", title: "Seamless Patient Check-ups", desc: "Conduct your physical examinations without the distraction of manual note-taking." },
+    { id: 2, image: "/assets/doctor3.png", title: "Smart AI Voice Documentation", desc: "Simply speak your diagnosis and treatment plan into the microphone. Our advanced AI captures your clinical notes in real-time with medical-grade accuracy." },
+    { id: 3, image: "/assets/doctor4.png", title: "Instant Prescription Generation", desc: "Watch as your spoken words are instantly formatted into a structured, professional prescription sheet." },
+    { id: 4, image: "/assets/doctor5.png", title: "Finalize & Deliver Care", desc: "Review and print the digitally generated sheet to hand over to your patient immediately." }
+  ];
 
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isFading, setIsFading] = useState(false);
+  const [isLogin, setIsLogin] = useState(true);
+  const [hidePassword, setHidePassword] = useState(true);
+  const [hideRetypePassword, setHideRetypePassword] = useState(true);
+  const [signUpData, setSignUpData] = useState({ name: "", email: "", password: "", reTypedPassword: "", dateOfBirth: "", phone: "", licenseNumber: "", clinicName: "", clinicAddress: "", specialization: "" });
+  const [signInData, setSignInData] = useState({ email: "", password: "" });
+  const [alert, setAlert] = useState({ show: false, type: '', message: '' });
+
+  const showAlert = (type, message) => {
+    setAlert({ show: true, type, message });
+    setTimeout(() => setAlert({ show: false, type: '', message: '' }), 5000);
+  };
 
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
-    e.preventDefault();           // stop page reload
-    navigate("/dashboard");    // go to video/voice capture page
+  const handleSubmit = async (s) => {
+    s.preventDefault();
+    if (isLogin) {
+      try {
+        const response = await fetch('http://localhost:5001/user/signin', { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(signInData) });
+        const data = await response.json();
+        if (data.status === "SUCCESS") 
+        { 
+          localStorage.setItem('token', data.token);
+          login(data.data); 
+          showAlert('success', 'Login Successful!'); 
+          setTimeout(() => navigate("/dashboard"), 2000); 
+        }
+        else {
+          showAlert('error', data.message);
+        }
+      } catch (error) { 
+        console.error("Error connecting to server:", error); 
+        showAlert('error', "Error connecting to server"); }
+    } else {
+      if (signUpData.password !== signUpData.reTypedPassword) { showAlert('error', "Passwords do not match!"); return; }
+      try {
+        const response = await fetch('http://localhost:5001/user/signup', { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(signUpData) });
+        const data = await response.json();
+        if (data.status === "SUCCESS") { login(data.data); showAlert('success', 'Account created successfully!'); setTimeout(() => navigate("/dashboard"), 2000); }
+        else showAlert('error', data.message);
+      } catch (error) { showAlert('error', "Error connecting to server"); }
+    }
   };
 
-  // Function to handle slide change (used by timer AND click)
   const goToSlide = useCallback((index) => {
-    setIsFading(true); // 1. Start Fade Out
-    setTimeout(() => {
-      setCurrentSlide(index); // 2. Swap Content
-      setIsFading(false); // 3. Start Fade In
-    }, 300); // This delay should be slightly shorter than the duration-500 class
+    setIsFading(true);
+    setTimeout(() => { setCurrentSlide(index); setIsFading(false); }, 300);
   }, []);
 
-  // Timer logic
   useEffect(() => {
-    const timer = setInterval(() => {
-      const nextSlide = (currentSlide + 1) % slides.length;
-      goToSlide(nextSlide);
-    }, 5000);
-
+    const timer = setInterval(() => { goToSlide((currentSlide + 1) % slides.length); }, 5000);
     return () => clearInterval(timer);
   }, [currentSlide, goToSlide]);
+
   
 
   return (
-    /* 'min-h-screen' ensures the page is at least as tall as the window */
-    /* 'flex-col' stacks items vertically on small screens */
-    /* 'md:flex-row' puts them side-by-side on medium screens and up */
-    <div className="min-h-screen flex flex-col md:flex-row">
-       {/* Left and Right sections will go here */}
-       <div className="absolute flex-shrink-0 cursor-pointer z-50">
-          <img 
-            src="assets/Drassist copy.png" 
-            alt="Logo" 
-            className={"transition-all duration-300 h-7 ml-5 mt-10"} 
-          />
+    <div className="min-h-screen flex font-[Outfit,sans-serif]">
+
+      {/* Logo */}
+      <div className="absolute top-7 left-6 z-50">
+        <img src="/assets/Drassist white logo.png" alt="logo" className="h-7" />
+      </div>
+
+      {/* ══ LEFT PANEL ══ */}
+      <div className="w-1/2 flex-shrink-0 flex flex-col items-center justify-between pt-[88px] pb-11 px-[52px] overflow-hidden relative"
+        style={{ background: "linear-gradient(180deg,#3f8b8c 0%,#2d6667 50%,#1c4040 100%)" }}>
+
+        {/* Decorative blobs */}
+        <div className="absolute -top-[100px] -right-[100px] w-[400px] h-[400px] rounded-full pointer-events-none"
+          style={{ background: "radial-gradient(circle,rgba(122,216,217,.18) 0%,transparent 65%)" }} />
+        <div className="absolute -bottom-[80px] -left-[80px] w-[320px] h-[320px] rounded-full pointer-events-none"
+          style={{ background: "radial-gradient(circle,rgba(255,255,255,.06) 0%,transparent 65%)" }} />
+        <div className="absolute -bottom-[120px] -right-[120px] w-[380px] h-[380px] rounded-full border border-white/[0.06] pointer-events-none" />
+
+        {/* Feature pills */}
+        <div className="flex gap-2 flex-wrap justify-center z-10 mb-2">
+          {["HIPAA Compliant", "AI-Powered", "Real-time"].map(t => (
+            <span key={t} className="inline-flex items-center gap-1.5 bg-white/[0.12] border border-white/20 rounded-full px-3 py-1 text-[11.5px] font-semibold text-white/90 tracking-[0.02em]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#7dd8d9] flex-shrink-0" />
+              {t}
+            </span>
+          ))}
         </div>
-       
-       {/* LEFT SECTION */}
-        <div className="w-full md:w-1/2 bg-[#a3c4bc] flex flex-col items-center p-12 text-white overflow-hidden relative">
-          {/* We use 'justify-between' to keep the dots at the bottom and content in the middle */}
-          
-          
-          <div key={currentSlide} className={`flex-1 flex flex-col justify-center items-center text-center transition-opacity duration-300 ${
-    isFading ? "opacity-0" : "opacity-100 animate-slide-flow"
-  }`}>
-            {/* Illustration */}
-            <img src={slides[currentSlide].image} alt="doctor-image" className="w-64 md:w-120 mb-8" />
-            
-            <h2 className="text-4xl font-semibold mb-4">{slides[currentSlide].title}</h2>
-            <p className="text-lg opacity-90 max-w-sm leading-relaxed">
-            {slides[currentSlide].desc}
+
+        {/* Slide */}
+        <div key={currentSlide}
+          className={`flex-1 flex flex-col items-center justify-center text-center z-10 w-full transition-opacity duration-300 ${isFading ? 'opacity-0' : 'opacity-100'}`}>
+          <div className="w-full flex justify-center mb-7">
+            <img src={slides[currentSlide].image} alt="doctor-image" className="w-[min(340px,78%)] block drop-shadow-[0_16px_32px_rgba(0,0,0,0.2)]" />
+          </div>
+          <div className="bg-white/[0.1] border border-white/[0.18] backdrop-blur-xl rounded-[18px] px-7 py-6 max-w-[380px] shadow-[0_4px_24px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.15)]">
+            <h2 className="text-xl font-bold text-white m-0 mb-2.5 leading-snug tracking-[-0.01em]">
+              {slides[currentSlide].title}
+            </h2>
+            <p className="text-[13.5px] text-white/72 leading-[1.7] m-0">
+              {slides[currentSlide].desc}
             </p>
           </div>
-
-          {/* CLICKABLE DOTS */}
-          <div className="flex justify-center space-x-3 mt-8 z-10">
-            {slides.map((slide, index) => (
-              <button
-                key={slide.id || index} 
-                onClick={() => goToSlide(index)}
-                type="button" // Prevents accidental form submission
-                aria-label={`Go to slide ${index + 1}`}
-                className={`h-2 transition-all duration-500 ease-in-out rounded-full cursor-pointer ${
-                  currentSlide === index 
-                    ? "w-7 bg-white"          // This makes the active one a long pill/rectangle
-                    : "w-2 bg-white/40"       // This keeps inactive ones as small circles
-                }`}
-              />
-            ))}
-          </div>
         </div>
 
+        {/* Dots */}
+        <div className="flex justify-center gap-2 z-10">
+          {slides.map((slide, index) => (
+            <button key={slide.id || index} type="button" aria-label={`Go to slide ${index + 1}`}
+              onClick={() => goToSlide(index)}
+              className={`h-1.5 rounded-full border-none cursor-pointer p-0 transition-all duration-500 ease-in-out ${currentSlide === index ? 'w-8 bg-white' : 'w-1.5 bg-white/30'}`}
+            />
+          ))}
+        </div>
+      </div>
 
-        {/* RIGHT SECTION */}
-        <div className="w-full md:w-1/2 bg-white flex items-center justify-center p-8 md:p-20 ">
-            <div className="w-full max-w-md">
-              <div className="text-center mb-16">
-                <h1 className="text-4xl font-semibold text-gray-700 mb-8">Welcome back!</h1>
-                <h3 className="text-gray-400 font-medium text-xl">Sign in to get started</h3>
+      {/* ══ RIGHT PANEL ══ */}
+      <div className="flex-1 flex flex-col items-center justify-center overflow-y-auto px-[52px] py-[72px] bg-[#f0ebe3]"
+        style={{ backgroundImage: "radial-gradient(ellipse 65% 55% at 85% 8%,rgba(63,139,140,.13) 0%,transparent 60%),radial-gradient(ellipse 45% 55% at 8% 92%,rgba(160,130,200,.09) 0%,transparent 55%)" }}>
+
+        {/* ── SIGN IN ── */}
+        {isLogin && (
+          <div className="w-full max-w-[420px]">
+            <div className="mb-10">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[rgba(63,139,140,0.09)] border border-[rgba(63,139,140,0.2)] mb-4">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#3f8b8c]" />
+                <span className="text-[11px] font-bold tracking-[0.1em] uppercase text-[#2d7071]">DrAssist</span>
               </div>
-
-              <form onSubmit={handleSubmit} className="space-y-10">
-                <div className="space-y-8">
-                  
-                  <div className="flex flex-col">
-                    <label className="text-sm text-gray-400 font-semibold mb-2">Users name or Email</label>
-                    <input 
-                      type="text" 
-                      placeholder="David Brooks"
-                      className="border-b-2 border-gray-100 py-3 focus:outline-none focus:border-[#3f8b8c] transition-all text-lg text-gray-700"
-                    />
-                  </div>
-
-                  <div className="flex flex-col">
-                    <label className="text-sm text-gray-400 font-semibold mb-2">Password</label>
-                    <input 
-                      type="password" placeholder="Enter your Password"
-                      className="border-b-2 border-gray-100 py-3 focus:outline-none focus:border-[#3f8b8c] transition-all text-lg text-gray-700"
-                    />
-                    <a href="#" className="text-right text-xs text-gray-400 mt-2 hover:text-gray-600 italic">Forgot password?</a>
-                  </div>
-
-                  <button type="submit" className="w-full bg-gray-800  text-white py-4 rounded-full font-bold text-xl hover:bg-[#6b6b6b] transition-all shadow-xl">
-                    Sign in
-                  </button>
-
-                </div>
-
-              </form>
-
-              {/* Bottom Decorations */}
-              <div className="mt-12">
-                <div className="flex items-center mb-8">
-                  <div className="flex-grow border-t border-gray-100"></div>
-                  <span className="px-4 text-sm text-gray-300 italic">or</span>
-                  <div className="flex-grow border-t border-gray-100"></div>
-                </div>
-
-                <button className="flex items-center justify-center w-full border border-gray-200 py-4 rounded-2xl hover:bg-gray-50 transition-colors mb-10">
-                  <img src="assets/googlelogo.png" className="w-5 h-5 mr-3" alt="Google" />
-                  <span className="text-gray-600 font-semibold">Sign in with Google</span>
-                </button>
-
-                <p className="text-center text-sm text-gray-400">
-                  New User? 
-                  <a href="#" className="ml-3 font-bold border-b border-gray-300 text-gray-500 hover:text-[#3f8b8c] transition-colors">Create Account</a>
-                </p>
-              </div>
+              <h1 className="text-[32px] font-extrabold text-[#1e1a14] m-0 mb-2 tracking-[-0.03em] leading-tight">Welcome back</h1>
+              <p className="text-sm text-[#9a8a78] m-0 leading-snug">Sign in to continue to your clinical workspace</p>
             </div>
-        </div>
+
+            <div className="bg-white/68 border border-white/92 backdrop-blur-[28px] rounded-3xl shadow-[0_8px_40px_rgba(80,60,30,0.1),inset_0_1px_0_rgba(255,255,255,0.95)] px-7 py-7 mb-5">
+              <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+                <Field label="Email Address">
+                  <Inp type="text" value={signInData.email} onChange={(e) => setSignInData({ ...signInData, email: e.target.value })} placeholder="david@clinic.com" />
+                </Field>
+                <Field label="Password">
+                  <div className="relative">
+                    <Inp type={hidePassword ? "password" : "text"} value={signInData.password} onChange={(p) => setSignInData({ ...signInData, password: p.target.value })} placeholder="Enter your password" className="pr-[46px]" />
+                    <button type="button" onClick={() => setHidePassword(!hidePassword)} className="absolute right-3 top-1/2 -translate-y-1/2 bg-none border-none cursor-pointer text-[#b0a090] flex p-0 hover:text-[#3f8b8c] transition-colors">
+                      {hidePassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                    </button>
+                  </div>
+                  {isLogin && <a href="#" className="text-[11.5px] text-[#b0a090] text-right italic mt-0.5 no-underline hover:text-[#3f8b8c] transition-colors block">Forgot password?</a>}
+                </Field>
+                <button type="submit" className="w-full bg-gradient-to-br from-[#3f8b8c] to-[#2d6667] text-white border-none rounded-xl py-[14px] text-[14.5px] font-bold cursor-pointer shadow-[0_4px_20px_rgba(63,139,140,0.32)] tracking-[0.02em] transition-all duration-200 hover:-translate-y-px hover:shadow-[0_8px_26px_rgba(63,139,140,0.42)]">
+                  Sign in
+                </button>
+              </form>
+            </div>
+
+            <div className="flex items-center gap-3.5 my-5">
+              <div className="flex-1 h-px bg-[rgba(200,185,165,0.45)]" />
+              <span className="text-xs text-[#c0b0a0] italic">or continue with</span>
+              <div className="flex-1 h-px bg-[rgba(200,185,165,0.45)]" />
+            </div>
+
+            <button className="flex items-center justify-center w-full bg-white/68 border border-[rgba(200,185,165,0.5)] rounded-xl py-[13px] cursor-pointer backdrop-blur-sm shadow-[0_2px_10px_rgba(80,60,30,0.06)] mb-6 transition-all duration-200 hover:bg-white/90 hover:border-[rgba(63,139,140,0.3)]">
+              <img src="/assets/googlelogo.png" className="w-[18px] h-[18px] mr-2.5" alt="Google" />
+              <span className="text-[13.5px] font-semibold text-[#5a4e40] font-[Outfit,sans-serif]">Sign in with Google</span>
+            </button>
+
+            <p className="text-center text-[13px] text-[#9a8a78] m-0">
+              New user?{" "}
+              <a href="#" className="font-bold text-[#3f8b8c] border-b border-[rgba(63,139,140,0.25)] pb-px no-underline hover:text-[#2d6667] transition-colors"
+                onClick={(e) => { e.preventDefault(); setIsLogin(false); }}>
+                Create account →
+              </a>
+            </p>
+          </div>
+        )}
+
+        {/* ── SIGN UP ── */}
+        {!isLogin && (
+          <div className="w-full max-w-[420px]">
+            <div className="mb-9">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[rgba(63,139,140,0.09)] border border-[rgba(63,139,140,0.2)] mb-4">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#3f8b8c]" />
+                <span className="text-[11px] font-bold tracking-[0.1em] uppercase text-[#2d7071]">DrAssist</span>
+              </div>
+              <h1 className="text-[32px] font-extrabold text-[#1e1a14] m-0 mb-2 tracking-[-0.03em] leading-tight">Create account</h1>
+              <p className="text-sm text-[#9a8a78] m-0 leading-snug">Enter your details to get started</p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="flex flex-col gap-[18px]">
+              <Field label="Full Name"><Inp type="text" value={signUpData.name} onChange={(e) => setSignUpData({ ...signUpData, name: e.target.value })} placeholder="Dr. David Brooks" /></Field>
+              <Field label="Date of Birth"><Inp type="date" value={signUpData.dateOfBirth} onChange={(e) => setSignUpData({ ...signUpData, dateOfBirth: e.target.value })} /></Field>
+              <Field label="Phone Number"><Inp type="tel" value={signUpData.phone} onChange={(e) => setSignUpData({ ...signUpData, phone: e.target.value })} placeholder="+1 234 567 8900" /></Field>
+              <Field label="Email Address"><Inp type="text" value={signUpData.email} onChange={(e) => setSignUpData({ ...signUpData, email: e.target.value })} placeholder="david@clinic.com" /></Field>
+              <Field label="Specialization"><Inp type="text" value={signUpData.specialization} onChange={(e) => setSignUpData({ ...signUpData, specialization: e.target.value })} placeholder="e.g. Cardiology" /></Field>
+              <Field label="License Number"><Inp type="text" value={signUpData.licenseNumber} onChange={(e) => setSignUpData({ ...signUpData, licenseNumber: e.target.value })} placeholder="MED-2024-XXXX" /></Field>
+              <Field label="Clinic Name"><Inp type="text" value={signUpData.clinicName} onChange={(e) => setSignUpData({ ...signUpData, clinicName: e.target.value })} placeholder="Your Clinic Name" /></Field>
+              <Field label="Clinic Address"><Inp type="text" value={signUpData.clinicAddress} onChange={(e) => setSignUpData({ ...signUpData, clinicAddress: e.target.value })} placeholder="123 Medical Drive, City" /></Field>
+              <Field label="Password">
+                <div className="relative">
+                  <Inp type={hidePassword ? "password" : "text"} value={signUpData.password} onChange={(e) => setSignUpData({ ...signUpData, password: e.target.value })} placeholder="Enter your password" className="pr-[46px]" />
+                  <button type="button" onClick={() => setHidePassword(!hidePassword)} className="absolute right-3 top-1/2 -translate-y-1/2 bg-none border-none cursor-pointer text-[#b0a090] flex p-0 hover:text-[#3f8b8c] transition-colors">
+                    {hidePassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                  </button>
+                </div>
+                {isLogin && <a href="#" className="text-[11.5px] text-[#b0a090] text-right italic mt-0.5 no-underline block">Forgot password?</a>}
+              </Field>
+              <Field label="Re-enter Password">
+                <div className="relative">
+                  <Inp type={hideRetypePassword ? "password" : "text"} value={signUpData.reTypedPassword} onChange={(e) => setSignUpData({ ...signUpData, reTypedPassword: e.target.value })} placeholder="Confirm your password" className="pr-[46px]" />
+                  <button type="button" onClick={() => setHideRetypePassword(!hideRetypePassword)} className="absolute right-3 top-1/2 -translate-y-1/2 bg-none border-none cursor-pointer text-[#b0a090] flex p-0 hover:text-[#3f8b8c] transition-colors">
+                    {hideRetypePassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                  </button>
+                </div>
+                {isLogin && <a href="#" className="text-[11.5px] text-[#b0a090] text-right italic mt-0.5 no-underline block">Forgot password?</a>}
+              </Field>
+              <button type="submit" className="w-full bg-gradient-to-br from-[#3f8b8c] to-[#2d6667] text-white border-none rounded-xl py-[13px] text-sm font-bold cursor-pointer shadow-[0_4px_18px_rgba(63,139,140,0.3)] mt-2 tracking-[0.02em] transition-all duration-200 hover:-translate-y-px hover:shadow-[0_8px_26px_rgba(63,139,140,0.42)]">
+                Create Account
+              </button>
+            </form>
+
+            <div className="mt-6">
+              <p className="text-center text-[13px] text-[#9a8a78] m-0">
+                Already have an account?{" "}
+                <a href="#" className="font-bold text-[#3f8b8c] border-b border-[rgba(63,139,140,0.25)] pb-px no-underline hover:text-[#2d6667] transition-colors"
+                  onClick={(e) => { e.preventDefault(); setIsLogin(true); }}>
+                  Sign in
+                </a>
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {alert.show && (
+          <Alert type={alert.type} message={alert.message} onClose={() => setAlert({ ...alert, show: false })} />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
